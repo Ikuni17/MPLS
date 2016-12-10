@@ -20,8 +20,8 @@ class Interface:
         self.oin = 0
         self.oout = 0
         self.cost = cost
-        self.capacity = capacity #serialization rate
-        self.next_avail_time = 0 #the next time the interface can transmit a packet
+        self.capacity = capacity  # serialization rate
+        self.next_avail_time = 0  # the next time the interface can transmit a packet
 
     ##get packet from the queue interface
     # @param in_or_out - use 'in' or 'out' interface
@@ -31,12 +31,12 @@ class Interface:
                 tuple = self.in_queue.get(False)
                 pkt_S = tuple[1]
                 packet = NetworkPacket.from_byte_S(pkt_S)
-                if packet.priority==0:
+                if packet.priority == 0:
                     self.zin -= 1
                 else:
                     self.oin -= 1
-#                 if pkt_S is not None:
-#                     print('getting packet from the IN queue')
+                #                 if pkt_S is not None:
+                #                     print('getting packet from the IN queue')
                 return pkt_S
             else:
                 tuple = self.out_queue.get(False)
@@ -45,13 +45,12 @@ class Interface:
                 if packet.priority == 0:
                     self.zout -= 1
                 else:
-                    self.oout -=1
-#                 if pkt_S is not None:
-#                     print('getting packet from the OUT queue')
+                    self.oout -= 1
+                #                 if pkt_S is not None:
+                #                     print('getting packet from the OUT queue')
                 return pkt_S
         except queue.Empty:
             return None
-
 
     ##put the packet into the interface queue
     # @param pkt - Packet to be inserted into the queue
@@ -67,7 +66,7 @@ class Interface:
                 self.oout += 1
                 Pval = 0
             tuple = (Pval, pkt)
-#             print('putting packet in the OUT queue')
+            #             print('putting packet in the OUT queue')
             self.out_queue.put(tuple, block)
         else:
             packet = NetworkPacket.from_byte_S(pkt)
@@ -78,7 +77,7 @@ class Interface:
                 self.oin += 1
                 Pval = 0
             tuple = (Pval, pkt)
-#             print('putting packet in the IN queue')
+            #             print('putting packet in the IN queue')
             self.in_queue.put(tuple, block)
 
 
@@ -112,7 +111,7 @@ class NetworkPacket:
         elif self.prot_S == 'control':
             byte_S += '2'
         else:
-            raise('%s: unknown prot_S option: %s' %(self, self.prot_S))
+            raise ('%s: unknown prot_S option: %s' % (self, self.prot_S))
         byte_S += str(self.priority)
         byte_S += self.data_S
         return byte_S
@@ -121,21 +120,21 @@ class NetworkPacket:
     # @param byte_S: byte string representation of the packet
     @classmethod
     def from_byte_S(self, byte_S):
-        dst_addr = int(byte_S[0 : NetworkPacket.dst_addr_S_length])
-        prot_S = byte_S[NetworkPacket.dst_addr_S_length : NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length]
+        dst_addr = int(byte_S[0: NetworkPacket.dst_addr_S_length])
+        prot_S = byte_S[NetworkPacket.dst_addr_S_length: NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length]
         if prot_S == '1':
             prot_S = 'data'
         elif prot_S == '2':
             prot_S = 'control'
         else:
-            raise('%s: unknown prot_S field: %s' %(self, prot_S))
-        priority = int(byte_S[NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length :NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length + 1])
-        data_S = byte_S[NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length + 1 : ]
+            raise ('%s: unknown prot_S field: %s' % (self, prot_S))
+        priority = int(byte_S[
+                       NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length:NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length + 1])
+        data_S = byte_S[NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length + 1:]
         return self(dst_addr, prot_S, priority, data_S)
 
 
 class MPLS_frame:
-
     def __init__(self, label, packet):
         self.label = label
         self.packet = packet
@@ -155,15 +154,13 @@ class MPLS_frame:
         return self(label, packet)
 
 
-
 ## Implements a network host for receiving and transmitting data
 class Host:
-
     ##@param addr: address of this node represented as an integer
     def __init__(self, addr):
         self.addr = addr
         self.intf_L = [Interface()]
-        self.stop = False #for thread termination
+        self.stop = False  # for thread termination
 
     ## called when printing the object
     def __str__(self):
@@ -174,9 +171,9 @@ class Host:
     # @param data_S: data being transmitted to the network layer
     # @param priority: packet priority
     def udt_send(self, dst_addr, data_S, priority):
-        p = NetworkPacket(dst_addr, 'data',priority, data_S)
+        p = NetworkPacket(dst_addr, 'data', priority, data_S)
         print('%s: sending packet "%s"' % (self, p))
-        self.intf_L[0].put(p.to_byte_S(), 'out') #send packets always enqueued successfully
+        self.intf_L[0].put(p.to_byte_S(), 'out')  # send packets always enqueued successfully
 
     ## receive packet from the network layer
     def udt_receive(self):
@@ -186,35 +183,33 @@ class Host:
 
     ## thread target for the host to keep receiving data
     def run(self):
-        print (threading.currentThread().getName() + ': Starting')
+        print(threading.currentThread().getName() + ': Starting')
         while True:
-            #receive data arriving to the in interface
+            # receive data arriving to the in interface
             self.udt_receive()
-            #terminate
-            if(self.stop):
-                print (threading.currentThread().getName() + ': Ending')
+            # terminate
+            if (self.stop):
+                print(threading.currentThread().getName() + ': Ending')
                 return
-
 
 
 ## Implements a multi-interface router described in class
 class Router:
-
     ##@param name: friendly router name for debugging
     # @param intf_cost_L: outgoing cost of interfaces (and interface number)
     # @param intf_capacity_L: capacities of outgoing interfaces in bps
     # @param rt_tbl_D: routing table dictionary (starting reachability), eg. {1: {1: 1}} # packet to host 1 through interface 1 for cost 1
     # @param max_queue_size: max queue length (passed to Interface)
     def __init__(self, name, intf_cost_L, intf_capacity_L, rt_tbl_D, max_queue_size):
-        self.stop = False #for thread termination
+        self.stop = False  # for thread termination
         self.name = name
-        #create a list of interfaces
-        #note the number of interfaces is set up by out_intf_cost_L
-        assert(len(intf_cost_L) == len(intf_capacity_L))
+        # create a list of interfaces
+        # note the number of interfaces is set up by out_intf_cost_L
+        assert (len(intf_cost_L) == len(intf_capacity_L))
         self.intf_L = []
         for i in range(len(intf_cost_L)):
             self.intf_L.append(Interface(intf_cost_L[i], max_queue_size, intf_capacity_L[i]))
-        #set up the routing table for connected hosts
+        # set up the routing table for connected hosts
         self.rt_tbl_D = rt_tbl_D
 
     ## called when printing the object
@@ -226,13 +221,13 @@ class Router:
     def process_queues(self):
         for i in range(len(self.intf_L)):
             pkt_S = None
-            #get packet from interface i
+            # get packet from interface i
             pkt_S = self.intf_L[i].get('in')
-            #if packet exists make a forwarding decision
+            # if packet exists make a forwarding decision
             if pkt_S is not None:
-                p = NetworkPacket.from_byte_S(pkt_S) #parse a packet out
+                p = NetworkPacket.from_byte_S(pkt_S)  # parse a packet out
                 if p.prot_S == 'data':
-                    self.forward_packet(p,i)
+                    self.forward_packet(p, i)
                 elif p.prot_S == 'control':
                     self.update_routes(p, i)
                 else:
@@ -246,8 +241,8 @@ class Router:
             # TODO: Here you will need to implement a lookup into the
             # forwarding table to find the appropriate outgoing interface
             # for now we assume the outgoing interface is (i+1)%2
-            self.intf_L[(i+1)%2].put(p.to_byte_S(), 'out', True)
-            print('%s: forwarding packet "%s" from interface %d to %d' % (self, p, i, (i+1)%2))
+            self.intf_L[(i + 1) % 2].put(p.to_byte_S(), 'out', True)
+            print('%s: forwarding packet "%s" from interface %d to %d' % (self, p, i, (i + 1) % 2))
         except queue.Full:
             print('%s: packet "%s" lost on interface %d' % (self, p, i))
             pass
@@ -255,7 +250,7 @@ class Router:
     ## forward the packet according to the routing table
     #  @param p Packet containing routing information
     def update_routes(self, p, i):
-        #TODO: add logic to update the routing tables and
+        # TODO: add logic to update the routing tables and
         # possibly send out routing updates
         print('%s: Received routing update %s from interface %d' % (self, p, i))
 
@@ -265,7 +260,7 @@ class Router:
         # a sample route update packet
         p = NetworkPacket(0, 'control', 'Sample routing table packet')
         try:
-            #TODO: add logic to send out a route update
+            # TODO: add logic to send out a route update
             print('%s: sending routing update "%s" from interface %d' % (self, p, i))
             self.intf_L[i].put(p.to_byte_S(), 'out', True)
         except queue.Full:
@@ -275,16 +270,15 @@ class Router:
     ## Print routing table
     def print_routes(self):
         print('%s: routing table' % self)
-        #TODO: print the routes as a two dimensional table for easy inspection
+        # TODO: print the routes as a two dimensional table for easy inspection
         # Currently the function just prints the route table as a dictionary
         print(self.rt_tbl_D)
-        
-                
+
     ## thread target for the host to keep forwarding data
     def run(self):
-        print (threading.currentThread().getName() + ': Starting')
+        print(threading.currentThread().getName() + ': Starting')
         while True:
             self.process_queues()
             if self.stop:
-                print (threading.currentThread().getName() + ': Ending')
-                return 
+                print(threading.currentThread().getName() + ': Ending')
+                return

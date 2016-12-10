@@ -25,17 +25,17 @@ if __name__ == '__main__':
     # create routers and routing tables for connected clients (subnets)
     router_a_rt_tbl_D = {1: {0: 1}}  # packet to host 1 through interface 0 for cost 1
     router_a = network_1.Router(name='A',
-                              intf_cost_L=[1, 1],
-                              intf_capacity_L=[500, 500],
-                              rt_tbl_D=router_a_rt_tbl_D,
-                              max_queue_size=router_queue_size)
+                                intf_cost_L=[1, 1],
+                                intf_capacity_L=[500, 500],
+                                rt_tbl_D=router_a_rt_tbl_D,
+                                max_queue_size=router_queue_size)
     object_L.append(router_a)
     router_b_rt_tbl_D = {2: {1: 3}}  # packet to host 2 through interface 1 for cost 3
     router_b = network_1.Router(name='B',
-                              intf_cost_L=[1, 3],
-                              intf_capacity_L=[500, 100],
-                              rt_tbl_D=router_b_rt_tbl_D,
-                              max_queue_size=router_queue_size)
+                                intf_cost_L=[1, 3],
+                                intf_capacity_L=[500, 100],
+                                rt_tbl_D=router_b_rt_tbl_D,
+                                max_queue_size=router_queue_size)
     object_L.append(router_b)
 
     # create a Link Layer to keep track of links between network nodes
@@ -75,12 +75,12 @@ if __name__ == '__main__':
     for t in thread_L:
         t.join()
 
-    #p = network_1.NetworkPacket(2,'data',1,'hello')
-    #print(p)
-    #m = network_1.MPLS_frame(2, p)
-    #mS = m.to_byte_M()
-    #mf = network_1.MPLS_frame.from_byte_M(mS)
-    #print(mf)
+    # p = network_1.NetworkPacket(2,'data',1,'hello')
+    # print(p)
+    # m = network_1.MPLS_frame(2, p)
+    # mS = m.to_byte_M()
+    # mf = network_1.MPLS_frame.from_byte_M(mS)
+    # print(mf)
 
     print("All simulation threads joined")
 
