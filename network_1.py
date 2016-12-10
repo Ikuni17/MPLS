@@ -35,7 +35,7 @@ class Interface:
                     self.zin -= 1
                 else:
                     self.oin -= 1
-                #                 if pkt_S is not None:
+                # if pkt_S is not None:
                 #                     print('getting packet from the IN queue')
                 return pkt_S
             else:
@@ -46,7 +46,7 @@ class Interface:
                     self.zout -= 1
                 else:
                     self.oout -= 1
-                #                 if pkt_S is not None:
+                # if pkt_S is not None:
                 #                     print('getting packet from the OUT queue')
                 return pkt_S
         except queue.Empty:
