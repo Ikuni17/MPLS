@@ -7,7 +7,6 @@ import network_2
 import link_2
 import threading
 from time import sleep
-import sys
 
 ##configuration parameters
 router_queue_size = 0  # 0 means unlimited
