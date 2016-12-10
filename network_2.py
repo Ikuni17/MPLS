@@ -200,7 +200,7 @@ class Router:
     # @param intf_capacity_L: capacities of outgoing interfaces in bps
     # @param rt_tbl_D: routing table dictionary (starting reachability), eg. {1: {1: 1}} # packet to host 1 through interface 1 for cost 1
     # @param max_queue_size: max queue length (passed to Interface)
-    def __init__(self, name, intf_cost_L, intf_capacity_L, rt_tbl_D, max_queue_size):
+    def __init__(self, name, intf_cost_L, intf_capacity_L, rt_tbl_D, mpls_tbl_D, max_queue_size):
         self.stop = False  # for thread termination
         self.name = name
         # create a list of interfaces
@@ -211,6 +211,7 @@ class Router:
             self.intf_L.append(Interface(intf_cost_L[i], max_queue_size, intf_capacity_L[i]))
         # set up the routing table for connected hosts
         self.rt_tbl_D = rt_tbl_D
+        self.mpls_tbl_D = mpls_tbl_D
 
     ## called when printing the object
     def __str__(self):
@@ -225,24 +226,37 @@ class Router:
             pkt_S = self.intf_L[i].get('in')
             # if packet exists make a forwarding decision
             if pkt_S is not None:
-                p = NetworkPacket.from_byte_S(pkt_S)  # parse a packet out
-                if p.prot_S == 'data':
-                    self.forward_packet(p, i)
-                elif p.prot_S == 'control':
-                    self.update_routes(p, i)
+                try:
+                    p = NetworkPacket.from_byte_S(pkt_S)  # parse a packet out
+                except TypeError:
+                    f = MPLS_frame.from_byte_M(pkt_S)
+                if type(p) is NetworkPacket:
+                    # If we have a packet we need to get the correct label from the MPLS table and encapsulate it
+                    tableTuple = self.mpls_tbl_D[(None, i)]
+                    frame = MPLS_frame(tableTuple[0], pkt_S)
+                    print("Encapsulated packet in MPLS frame")
+                    self.forward_packet(frame, tableTuple[1])
                 else:
-                    raise Exception('%s: Unknown packet type in packet %s' % (self, p))
+                    tableTuple = self.mpls_tbl_D[f.label, i]
+                    self.forward_packet(f, tableTuple[1])
+                #if p.prot_S == 'data':
+                #    self.forward_packet(p, i)
+                #elif p.prot_S == 'control':
+                #    self.update_routes(p, i)
+                #else:
+                #    raise Exception('%s: Unknown packet type in packet %s' % (self, p))
 
     ## forward the packet according to the routing table
     #  @param p Packet to forward
     #  @param i Incoming interface number for packet p
     def forward_packet(self, p, i):
         try:
-            # TODO: Here you will need to implement a lookup into the
-            # forwarding table to find the appropriate outgoing interface
-            # for now we assume the outgoing interface is (i+1)%2
-            self.intf_L[(i + 1) % 2].put(p.to_byte_S(), 'out', True)
-            print('%s: forwarding packet "%s" from interface %d to %d' % (self, p, i, (i + 1) % 2))
+            if type(p) is MPLS_frame:
+                self.intf_L[i].put(p, 'out', True)
+                print("Forwarding frame")
+            else:
+                self.intf_L[(i + 1) % 2].put(p.to_byte_S(), 'out', True)
+                print('%s: forwarding packet "%s" from interface %d to %d' % (self, p, i, (i + 1) % 2))
         except queue.Full:
             print('%s: packet "%s" lost on interface %d' % (self, p, i))
             pass
