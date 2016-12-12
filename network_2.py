@@ -30,24 +30,28 @@ class Interface:
             if in_or_out == 'in':
                 pktTuple = self.in_queue.get(False)
                 pkt_S = pktTuple[1]
-                packet = NetworkPacket.from_byte_S(pkt_S)
+                # Check if we have a packet or frame in the queue by looking at its length
+                if len(pkt_S) is 27:
+                    packet = NetworkPacket.from_byte_S(pkt_S)
+                else:
+                    packet = MPLS_frame(pkt_S[:1], NetworkPacket.from_byte_S(pkt_S[2:]))
                 if packet.priority == 0:
                     self.zin -= 1
                 else:
                     self.oin -= 1
-                # if pkt_S is not None:
-                #                     print('getting packet from the IN queue')
                 return pkt_S
             else:
                 pktTuple = self.out_queue.get(False)
                 pkt_S = pktTuple[1]
-                packet = NetworkPacket.from_byte_S(pkt_S)
+                # Check if we have a packet or frame in the queue by looking at its length
+                if len(pkt_S) is 27:
+                    packet = NetworkPacket.from_byte_S(pkt_S)
+                else:
+                    packet = MPLS_frame(pkt_S[:1], NetworkPacket.from_byte_S(pkt_S[2:]))
                 if packet.priority == 0:
                     self.zout -= 1
                 else:
                     self.oout -= 1
-                # if pkt_S is not None:
-                #                     print('getting packet from the OUT queue')
                 return pkt_S
         except queue.Empty:
             return None
@@ -58,10 +62,11 @@ class Interface:
     # @param block - if True, block until room in queue, if False may throw queue.Full exception
     def put(self, pkt, in_or_out, block=False):
         if in_or_out == 'out':
+            # Check if we have a packet or frame by looking at its length
             if len(pkt) is 27:
                 packet = NetworkPacket.from_byte_S(pkt)
             else:
-                packet = MPLS_frame.from_byte_S(pkt)
+                packet = MPLS_frame(pkt[:1], NetworkPacket.from_byte_S(pkt[2:]))
             if packet.priority == 0:
                 self.zout += 1
                 Pval = 1
@@ -69,13 +74,13 @@ class Interface:
                 self.oout += 1
                 Pval = 0
             pktTuple = (Pval, pkt)
-            #             print('putting packet in the OUT queue')
             self.out_queue.put(pktTuple, block)
         else:
+            # Check if we have a packet or frame by looking at its length
             if len(pkt) is 27:
                 packet = NetworkPacket.from_byte_S(pkt)
             else:
-                packet = MPLS_frame.from_byte_S(pkt)
+                packet = MPLS_frame(pkt[:1], NetworkPacket.from_byte_S(pkt[2:]))
             if packet.priority == 0:
                 self.zin += 1
                 Pval = 1
@@ -83,7 +88,6 @@ class Interface:
                 self.oin += 1
                 Pval = 0
             pktTuple = (Pval, pkt)
-            #             print('putting packet in the IN queue')
             self.in_queue.put(pktTuple, block)
 
 
@@ -139,27 +143,33 @@ class NetworkPacket:
         data_S = byte_S[NetworkPacket.dst_addr_S_length + NetworkPacket.prot_S_length + 1:]
         return self(dst_addr, prot_S, priority, data_S)
 
-
+# Encapsulates a packet in a MPLS frame if the router supports it
 class MPLS_frame():
     def __init__(self, label, packet):
         self.label = label
-        self.packet = packet
         self.priority = packet.priority
-        #print("Stuff", packet)
+        self.packet = packet
 
     def __str__(self):
         return self.to_byte_S()
 
+    # Parse a frame into a byte string
     def to_byte_S(self):
         byte_S = str(self.label)
+        byte_S += str(self.priority)
         byte_S += NetworkPacket.to_byte_S(self.packet)
         return byte_S
 
+    # Parse a frame from a byte string
     def from_byte_S(self, byte_S):
         label = int(byte_S[0])
-        packet = NetworkPacket.from_byte_S(byte_S[1:])
-        return self(label, packet)
+        priority = int(byte_S[1])
+        packet = NetworkPacket.from_byte_S(byte_S[2:])
+        return self(label, priority, packet)
 
+    # Return the packet, used for decapsulation
+    def getPacket(self):
+        return self.packet
 
 ## Implements a network host for receiving and transmitting data
 class Host:
@@ -229,50 +239,41 @@ class Router:
     def process_queues(self):
         for i in range(len(self.intf_L)):
             pkt_S = None
-            # get packet from interface i
+            # get packet or frame from interface i
             pkt_S = self.intf_L[i].get('in')
-            # if packet exists make a forwarding decision
+            # if packet or frame exists make a forwarding decision
             if pkt_S is not None:
-                '''p = NetworkPacket.from_byte_S(pkt_S)  # parse a packet out
-                if p.prot_S == 'data':
-                    self.forward_packet(p, i)
-                elif p.prot_S == 'control':
-                    self.update_routes(p, i)
-                else:
-                    raise Exception('%s: Unknown packet type in packet %s' % (self, p))'''
-
                 try:
                     p = NetworkPacket.from_byte_S(pkt_S)  # parse a packet out
+                # Catch the type error if we actually have a frame
                 except TypeError:
-                    f = MPLS_frame.from_byte_M(pkt_S)
+                    p = MPLS_frame(pkt_S[:1], NetworkPacket.from_byte_S(pkt_S[2:]))
                 if type(p) is NetworkPacket:
-                    # If we have a packet we need to get the correct label from the MPLS table and encapsulate it
-                    #tableTuple = self.mpls_tbl_D[(None, i)]
+                    # If we have a packet we need to encapsulate it
                     frame = MPLS_frame(None, p)
-                    print("Encapsulated packet in MPLS frame")
                     self.forward_packet(frame, i)
                 else:
-                    #tableTuple = self.mpls_tbl_D[f.label, i]
-                    self.forward_packet(f, i)
+                    # Otherwise we have a frame, just forward it
+                    self.forward_packet(p, i)
 
     ## forward the packet according to the routing table
     #  @param p Packet to forward
     #  @param i Incoming interface number for packet p
     def forward_packet(self, p, i):
-        '''try:
-            self.intf_L[(i + 1) % 2].put(p.to_byte_S(), 'out', True)
-            print('%s: forwarding packet "%s" from interface %d to %d' % (self, p, i, (i + 1) % 2))
-
-        except queue.Full:
-            print('%s: packet "%s" lost on interface %d' % (self, p, i))
-            pass'''
-
         try:
             if type(p) is MPLS_frame:
                 tableTuple = self.mpls_tbl_D[p.label, i]
                 p.label = tableTuple[0]
-                self.intf_L[tableTuple[1]].put(p.to_byte_S(), 'out', True)
-                print("Forwarding frame")
+                # if the out label is 'None' we need to decapsulate for a host
+                if p.label is None:
+                    decap = p.getPacket()
+                    self.intf_L[tableTuple[1]].put(decap.to_byte_S(), 'out', True)
+                    print('%s: forwarding packet "%s" from interface %d to %d' % (self, decap, i, tableTuple[1]))
+                # Otherwise we are going to somewhere with MPLS support so put it on the out interface queue
+                else:
+                    self.intf_L[tableTuple[1]].put(p.to_byte_S(), 'out', True)
+                    print('%s: forwarding frame "%s" from interface %d to %d' % (self, p, i, tableTuple[1]))
+            # Handles forwarding of packets
             else:
                 self.intf_L[(i + 1) % 2].put(p.to_byte_S(), 'out', True)
                 print('%s: forwarding packet "%s" from interface %d to %d' % (self, p, i, (i + 1) % 2))
