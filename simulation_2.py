@@ -10,7 +10,7 @@ from time import sleep
 
 ##configuration parameters
 router_queue_size = 0  # 0 means unlimited
-simulation_time = 10  # give the network sufficient time to transfer all packets before quitting
+simulation_time = 15  # give the network sufficient time to transfer all packets before quitting
 
 if __name__ == '__main__':
     object_L = []  # keeps track of objects, so we can kill their threads
@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     # create routers and routing tables for connected clients (subnets)
     router_a_rt_tbl_D = {1: {0: 1}, 2: {1: 1}}  # packet to host 1 through interface 0 for cost 1
-    router_a_mpls_tbl_D = {(None, 0): (7, 2), (None, 1): (8, 3)}  # (in_label, in_intf) : (out_label, out_intf)
+    router_a_mpls_tbl_D = {(None, 0): ('6', 2), (None, 1): ('7', 3)}  # (in_label, in_intf) : (out_label, out_intf)
     router_a = network_2.Router(name='A',
                                 intf_cost_L=[1, 1, 1, 1],
                                 intf_capacity_L=[500, 500, 500, 500],
@@ -34,7 +34,7 @@ if __name__ == '__main__':
                                 max_queue_size=router_queue_size)
     object_L.append(router_a)
     router_b_rt_tbl_D = {}
-    router_b_mpls_tbl_D = {(7, 0): (9, 1)}
+    router_b_mpls_tbl_D = {('6', 0): ('8', 1)} # (in_label, in_intf) : (out_label, out_intf)
     router_b = network_2.Router(name='B',
                                 intf_cost_L=[1, 1],
                                 intf_capacity_L=[500, 500],
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     object_L.append(router_b)
 
     router_c_rt_tbl_D = {}
-    router_c_mpls_tbl_D = {(8, 0): (10, 1)}
+    router_c_mpls_tbl_D = {('7', 0): ('9', 1)} # (in_label, in_intf) : (out_label, out_intf)
     router_c = network_2.Router(name='C',
                                 intf_cost_L=[1, 1],
                                 intf_capacity_L=[500, 500],
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     object_L.append(router_c)
 
     router_d_rt_tbl_D = {3: {2: 1}}
-    router_d_mpls_tbl_D = {(9, 0): (None, 2), (10, 1): (None, 2)}
+    router_d_mpls_tbl_D = {('8', 0): (None, 2), ('9', 1): (None, 2)} # (in_label, in_intf) : (out_label, out_intf)
     router_d = network_2.Router(name='D',
                                 intf_cost_L=[1, 1, 1],
                                 intf_capacity_L=[500, 500, 500],
@@ -105,15 +105,5 @@ if __name__ == '__main__':
     for t in thread_L:
         t.join()
 
-    # p = network_1.NetworkPacket(2,'data',1,'hello')
-    # print(p)
-    # m = network_1.MPLS_frame(2, p)
-    # mS = m.to_byte_M()
-    # mf = network_1.MPLS_frame.from_byte_M(mS)
-    # print(mf)
-
     print("All simulation threads joined")
 
-
-
-    # writes to host periodically
